@@ -1,0 +1,7 @@
+numpy==1.26.4
+pillow==11.3.0
+opencv-python-headless==4.10.0.84
+pyyaml==6.0.3
+timm==0.9.16
+scipy==1.15.3
+yacs==0.1.8

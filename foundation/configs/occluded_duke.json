@@ -1,0 +1,23 @@
+{
+  "split_counts": {
+    "train": 15618,
+    "query": 2210,
+    "gallery": 17661
+  },
+  "train_identities": 702,
+  "dataset_signature": "2cecd2337446d4936935afc814c38e3d2469e08ab2d14a8caaf500385c8cabe9",
+  "pretrained_sha256": [
+    "20c1105ac7b58f444092d9e3b589150e107a7320a34f321353276ff5c5a9f3d1",
+    "ba234ac5c271614393d4948430d1cea12aa4d79776e96db5276e529e4a8b74c3"
+  ],
+  "evaluation_image_set_sha256": "87edc74c72931fd49d91328ca395e69f22f427ca56540198982f522073d3fd7b",
+  "split_manifest_sha256": {
+    "train": "8be1e4b1054e29c6278581e67f15019ba2717a2df592dfda38ed5c009fe642d1",
+    "query": "c8d293314dcdde55c74de1e02f1aa9b9230a430aa891e730526a6f16284369c5",
+    "gallery": "5e226a98011b5ab029b0613f60ff8dd06f7e7bba0b84c0999fb5cfad2434ba9d"
+  },
+  "shared_source": {
+    "cohort_sha256": "9a7abb8a88526deb490504231e0b82d78e5f39db01afd5320e9a9a4906eac676",
+    "weak_points_sha256": "0e2239f124e71c3de5cfb0d8ee482e0a35df53940e6f2b7b78e1097445ef278d"
+  }
+}

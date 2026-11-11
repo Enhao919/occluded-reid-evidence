@@ -1,0 +1,15 @@
+{
+  "policy": {
+    "seed": 101,
+    "epochs": 6,
+    "pairs_per_batch": 4,
+    "hidden": 32,
+    "lr": 0.0001,
+    "support_weight": 0.1,
+    "protection_weight": 0.5,
+    "max_log_gain": 0.4,
+    "max_visibility_drop": 0.25,
+    "residual_fraction": 0.25
+  },
+  "initial_state_sha256": "bae09ddc4a727f31d80260e8af0e1cf4291ce0b3d50a85c9f14b67d98326a3d1"
+}
