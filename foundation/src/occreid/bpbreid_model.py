@@ -28,8 +28,7 @@ class BPBreIDHead(nn.Module):
         self.global_identity_classifier = BNClassifier(dim, num_classes)
         self.foreground_identity_classifier = BNClassifier(dim, num_classes)
         self.concat_parts_identity_classifier = BNClassifier(8 * dim, num_classes)
-        # Optional MSF is initialized after shared heads: matched-seed ablations
-        # retain identical classifier/parser/reduction initialization.
+        # Initialize fusion after the shared classifier and reduction layers.
         self.msf = MultiStageFusion(1920, 1024) if use_msf else nn.Identity()
         self.context_residual = None
         if (context_repair or {}).get('enabled', False):

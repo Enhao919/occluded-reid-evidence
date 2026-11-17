@@ -10,6 +10,7 @@ from evaluate_checkpoint import require
 from occreid.model import build_model
 
 NATIVE_STATE = 'a7e90f5eb4163d2d3f597a9e7c515d221de72159b748d682b013cd8d8cfee7a0'
+EVIDENCE_STATE = '59f63da990389c65f74abaa82d31e611430c021da4cacf38be2cf7cfe88a57a5'
 ORIGINAL_FILE = '5845864f7a4a93e2e2fc07bdeb421e9a4a639d7a111c1afe4618016b2e0a7fc6'
 STATS_FILE = 'f25e1e41f8d7b246c8136049bdebec0f3b8e372a522f342a49e04a64ffda5b4e'
 
@@ -26,31 +27,42 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
 
 
+def reference_encoder(config):
+    require(config['num_classes']==702 and tuple(config['image_size'])==(384,128)
+            and config.get('head_architecture')=='bpbreid','Wrong native architecture')
+    return build_model(config, pretrained=None)
+
+
+def verified_encoder(model, device):
+    require(state_hash(model.state_dict())==NATIVE_STATE,'Native reconstruction differs from the verified model')
+    require(model.head.context_residual is None,'Unexpected context residual in native inference')
+    return model.to(device).eval().requires_grad_(False)
+
+
+def install_calibrated_state(model, state):
+    stats = dict(mean1=state['head.foreground_reduce.layers.1.running_mean'],
+                 var1=state['head.foreground_reduce.layers.1.running_var'],
+                 mean2=state['head.foreground_identity_classifier.bn.running_mean'],
+                 var2=state['head.foreground_identity_classifier.bn.running_var'])
+    install_head(model,stats,'none')
+    model.load_state_dict(state,strict=True)
+
+
 def load_native(path,device='cpu',legacy_statistics=None):
     path = Path(path)
     packet = torch.load(path,map_location='cpu',weights_only=False,mmap=True)
     config = dict(packet['config'])
-    require(config['num_classes']==702 and tuple(config['image_size'])==(384,128)
-            and config.get('head_architecture')=='bpbreid','Wrong native architecture')
-    model = build_model(config,pretrained=None)
+    model = reference_encoder(config)
     if packet.get('format')=='native_effective_r180_v1':
         require(packet['model_sha256']==NATIVE_STATE,'Wrong effective native checkpoint')
-        state = packet['model']
-        stats = dict(mean1=state['head.foreground_reduce.layers.1.running_mean'],
-                     var1=state['head.foreground_reduce.layers.1.running_var'],
-                     mean2=state['head.foreground_identity_classifier.bn.running_mean'],
-                     var2=state['head.foreground_identity_classifier.bn.running_var'])
-        install_head(model,stats,'none')
-        model.load_state_dict(state,strict=True)
+        install_calibrated_state(model, packet['model'])
     else:
         require(legacy_statistics is not None and digest(path)==ORIGINAL_FILE
                 and digest(legacy_statistics)==STATS_FILE,'Original R180 compatibility requires its exact calibration')
         model.load_state_dict(packet['model'],strict=True)
         stats = torch.load(legacy_statistics,map_location='cpu',weights_only=False)['GWAP_recal']
         install_head(model,stats,'none')
-    require(state_hash(model.state_dict())==NATIVE_STATE,'Native reconstruction differs from the verified model')
-    require(model.head.context_residual is None,'Unexpected context residual in native inference')
-    return model.to(device).eval().requires_grad_(False),config
+    return verified_encoder(model, device),config
 
 
 def load_model(head_path,native_path,device='cpu',legacy_statistics=None):
@@ -68,3 +80,18 @@ def load_model(head_path,native_path,device='cpu',legacy_statistics=None):
     return model,config,dict(epoch=packet['epoch'],seed=policy['seed'],
                              head_file_sha256=digest(head_path),head_state_sha256=packet['model_state_sha256'],
                              native_state_sha256=NATIVE_STATE)
+
+
+def load_checkpoint(path, device='cpu'):
+    """Load the published inference checkpoint with calibration folded in."""
+    packet = torch.load(path, map_location='cpu', weights_only=True, mmap=True)
+    require(packet.get('format') == 'tiernet_occluded_duke_v1', 'Expected a TIERNet checkpoint')
+    config = dict(packet['config'])
+    native = reference_encoder(config)
+    install_calibrated_state(native, packet['encoder'])
+    native = verified_encoder(native, device)
+    head = TargetAllocation().to(device)
+    head.load_state_dict(packet['evidence'], strict=True)
+    require(state_hash(head.state_dict()) == EVIDENCE_STATE, 'Evidence weights differ from the release')
+    model = AllocatedReID(native, head, residual_fraction=.25).eval().requires_grad_(False)
+    return model, config, dict(native_state_sha256=NATIVE_STATE, head_state_sha256=EVIDENCE_STATE)

@@ -110,9 +110,10 @@ def parse_arguments():
         training.add_argument("--work-dir", type=local_path, default=str(WORK_DIR))
         training.add_argument("--gpu", type=int, default=0)
 
-    test = add_command("test", "Evaluate the three scores on the complete gallery")
+    test = add_command("test", "Evaluate TIERNet on the complete gallery")
     test.add_argument("--work-dir", dest="work", type=local_path, default=str(WORK_DIR))
     test.add_argument("--output", type=local_path, required=True)
+    test.add_argument("--checkpoint", type=local_path, help="Released TIERNet weights")
     test.add_argument("--native-checkpoint", type=local_path)
     test.add_argument("--bn-statistics", type=local_path)
     test.add_argument("--evidence-checkpoint", type=local_path)
@@ -127,6 +128,8 @@ def parse_arguments():
         reference = (args.native_checkpoint, args.bn_statistics, args.evidence_checkpoint)
         if any(reference) and not all(reference):
             parser.error("Supply all three reference checkpoints together")
+        if args.checkpoint and any(reference):
+            parser.error("Use either --checkpoint or the three reference checkpoint paths")
         if args.batch_size <= 0 or args.workers < 0:
             parser.error("--batch-size must be positive and --workers nonnegative")
         args.reference = reference if all(reference) else None
@@ -161,6 +164,8 @@ def main():
     elif args.action in ("train", "resume"):
         train(args)
     else:
+        if args.checkpoint:
+            require(args.checkpoint.is_file(), f"Missing checkpoint: {args.checkpoint}")
         if args.reference:
             for path in args.reference:
                 require(path.is_file(), f"Missing reference checkpoint: {path}")

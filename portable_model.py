@@ -55,8 +55,11 @@ def export_native(work):
     atomic_json(work/'NATIVE_EXPORTED.json',dict(provenance,file_sha256=digest(path)))
 
 
-def load_complete(work,device='cpu',reference=None):
+def load_complete(work,device='cpu',reference=None,checkpoint=None):
     import torch
+    if checkpoint is not None:
+        from runtime import load_checkpoint
+        return load_checkpoint(checkpoint, device)
     if reference is not None:
         from runtime import load_model
         native,statistics,head=reference

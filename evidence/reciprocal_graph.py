@@ -1,5 +1,6 @@
-"""Independent float32 k-reciprocal comparator; no labels enter this function."""
+"""Reciprocal-neighborhood construction and weighted Jaccard re-ranking."""
 import numpy as np
+from bounded_graph import correct_support
 
 K1 = 20
 K2 = 6
@@ -16,14 +17,9 @@ def assemble_owned(blocks):
     matrix[nq:, :nq] = qg.T; matrix[nq:, nq:] = gg
     return matrix
 
-def rerank_owned(full, query_count, *, k1=K1, k2=K2, blend=LAMBDA, sort_block=64):
-    """Consume an owned full distance array; use only exact firstK ranks.
-
-    Returns final scores, normalization-only scores, and query neighborhood indices.
-    Give a temporary/owned array if full-matrix lifetime must end inside the call.
-    Every numerical operator follows the float32 distance-matrix convention; the
-    only memory changes are batched full sorting and copying only the query rows.
-    """
+def rerank_owned(full, query_count, *, quality, quality_scale, max_kl=.001,
+                 k1=K1, k2=K2, blend=LAMBDA, sort_block=64):
+    """Consume the full distance matrix and return the final query/gallery scores."""
     assert full.dtype == np.float32 and full.ndim == 2 and full.shape[0] == full.shape[1]
     n = len(full); assert 0 < query_count < n and 0 <= blend <= 1
     assert 1 <= k2 <= k1 + 1 <= n and sort_block >= 1
@@ -39,7 +35,6 @@ def rerank_owned(full, query_count, *, k1=K1, k2=K2, blend=LAMBDA, sort_block=64
         rank[start:start + sort_block] = np.argsort(distance[start:start + sort_block], axis=1)[:, :rank.shape[1]].astype(np.int32)
     weights = np.zeros((n, n), dtype=np.float32)
     half = int(np.around(k1 / 2.)) + 1
-    query_context = []
     for node in range(n):
         forward = rank[node, :k1 + 1]
         reverse = rank[forward, :k1 + 1]
@@ -54,17 +49,15 @@ def rerank_owned(full, query_count, *, k1=K1, k2=K2, blend=LAMBDA, sort_block=64
         expanded = np.unique(expanded)
         affinity = np.exp(-distance[node, expanded])
         weights[node, expanded] = affinity / np.sum(affinity)
-        if node < query_count:
-            query_context.append(dict(reciprocal=reciprocal.tolist(), expanded=expanded.tolist()))
     query_distance = distance[:query_count].copy()
-    del distance
     if k2 != 1:
         averaged = np.zeros_like(weights, dtype=np.float32)
         for node in range(n):
             averaged[node] = np.mean(weights[rank[node, :k2]], axis=0)
         weights = averaged
         del averaged
-    del rank
+    correct_support(weights, distance, rank, k2, max_kl, quality, quality_scale)
+    del rank, distance
     reverse_index = [np.where(weights[:, column] != 0)[0] for column in range(n)]
     jaccard = np.zeros_like(query_distance, dtype=np.float32)
     for node in range(query_count):
@@ -75,4 +68,4 @@ def rerank_owned(full, query_count, *, k1=K1, k2=K2, blend=LAMBDA, sort_block=64
             overlap[0, images] = overlap[0, images] + np.minimum(weights[node, column], weights[images, column])
         jaccard[node] = 1 - overlap / (2. - overlap)
     scores = jaccard * (1 - blend) + query_distance * blend
-    return scores[:, query_count:], query_distance[:, query_count:], query_context
+    return scores[:, query_count:]

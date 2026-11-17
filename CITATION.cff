@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use TIERNet in your research, please cite the manuscript."
+title: "Identity Evidence Is Target-Relative: Constrained Redistribution for Occluded Person Re-Identification"
+type: software
+authors:
+  - family-names: Ning
+    given-names: Enhao
+  - family-names: Yuan
+    given-names: Jicheng
+  - family-names: Liu
+    given-names: Yiwen
+  - family-names: Ning
+    given-names: Xin
+repository-code: "https://github.com/Enhao919/occluded-reid-evidence"

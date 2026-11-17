@@ -1,6 +1,4 @@
-"""KL-limited graph support de-correlation, optionally conditioned on evidence."""
-from pathlib import Path
-import hashlib
+"""Evidence quality and KL-limited redistribution of graph support."""
 import numpy as np
 
 
@@ -51,16 +49,13 @@ def budgets(quality,scale,maximum):
     return maximum*quality/(quality+scale)
 
 
-def correct_support(weights,distance,rank,k2,query_count,max_kl,quality=None,quality_scale=None):
+def correct_support(weights,distance,rank,k2,max_kl,quality,quality_scale):
     n=len(weights)
-    allowed=np.full(n,max_kl,dtype=np.float64) if quality is None else budgets(quality,quality_scale,max_kl)
+    allowed=budgets(quality,quality_scale,max_kl)
     if len(allowed)!=n:raise ValueError('Graph evidence/node order differs')
     radius=distance[np.arange(n),rank[:,k2-1]].clip(min=1e-8)
-    counts=dict(rows=n,changed_rows=0,max_kl=0.,max_budget_violation=0.,max_tv=0.,mean_beta=0.,zero_budget_rows=int((allowed==0).sum()))
-    query_rows=[]
     for node,row in enumerate(weights):
         active=np.flatnonzero(row>0)
-        stat=dict(beta=0.,kl=0.,tv=0.)
         if len(active)>1 and allowed[node]>0:
             region=distance[np.ix_(active,active)]/radius[active,None]
             similarity=np.exp(-np.maximum(region,region.T));np.fill_diagonal(similarity,1.)
@@ -69,27 +64,3 @@ def correct_support(weights,distance,rank,k2,query_count,max_kl,quality=None,qua
             if stat['kl']>allowed[node]+1e-8 or abs(float(corrected.sum())-1)>2e-6:
                 raise FloatingPointError('Support projection violates its declared budget')
             row[active]=corrected
-            counts['changed_rows']+=int(float(np.abs(corrected-before).max())>1e-7)
-        counts['max_kl']=max(counts['max_kl'],stat['kl'])
-        counts['max_budget_violation']=max(counts['max_budget_violation'],stat['kl']-allowed[node])
-        counts['max_tv']=max(counts['max_tv'],stat['tv'])
-        counts['mean_beta']+=stat['beta']/n
-        if node<query_count:query_rows.append(dict(node=node,support=len(active),budget=float(allowed[node]),**stat))
-    return dict(summary=counts,query_rows=query_rows)
-
-
-def graph_variant(path,expected_sha256):
-    path=Path(path);data=path.read_bytes()
-    if hashlib.sha256(data).hexdigest()!=expected_sha256:raise ValueError('Historical graph changed')
-    source=data.decode()
-    edits=(('sort_block=64):','sort_block=64, max_kl=.001, quality=None, quality_scale=None):'),
-           ('    del distance\n',''),
-           ('    del rank\n','    correction = correct_support(weights,distance,rank,k2,query_count,max_kl,quality,quality_scale)\n    del rank,distance\n'),
-           ('return scores[:, query_count:], query_distance[:, query_count:], query_context',
-            'return scores, query_distance, query_context, correction'))
-    for before,after in edits:
-        if source.count(before)!=1:raise ValueError('Unsupported historical graph interface')
-        source=source.replace(before,after)
-    namespace=dict(correct_support=correct_support)
-    exec(compile(source,str(path),'exec'),namespace)
-    return namespace['rerank_owned']
