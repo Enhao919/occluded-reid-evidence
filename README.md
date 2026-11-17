@@ -4,7 +4,7 @@
 
 Enhao Ning, Jicheng Yuan, Yiwen Liu, and Xin Ning
 
-TIERNet estimates whether a visible region supports the target identity, another identity, or neither reliably. These predictions guide part pooling and visibility weighting. During retrieval, they set the evidence budget for redistribution within reciprocal neighborhoods.
+The **Target-relative Identity Evidence Redistribution Network (TIERNet)** estimates whether a visible region supports the target identity, another identity, or neither reliably. These predictions guide part pooling and visibility weighting. During retrieval, they set the evidence budget for redistribution within reciprocal neighborhoods.
 
 ![Overview of TIERNet training and inference](assets/tiernet.png)
 
