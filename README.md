@@ -44,7 +44,9 @@ Occluded-Duke/
 └── bounding_box_test/
 ```
 
-Place `tiernet_occluded_duke.pt` in `weights/`. The checkpoint contains the calibrated encoder and the trained evidence branch.
+Download the [Occluded-Duke checkpoint](https://github.com/Enhao919/occluded-reid-evidence/releases/download/v1.0.0/tiernet_occluded_duke.pt) and save it as `weights/tiernet_occluded_duke.pt`. The checkpoint contains the calibrated encoder and trained evidence branch for the complete TIERNet model.
+
+SHA-256 `5653a84d25421f91c894dc0f33a10f7a09c0a2849e2a8d47d2ff929b725305c7`
 
 ```bash
 python reproduce.py test \
